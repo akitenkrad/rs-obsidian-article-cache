@@ -32,4 +32,6 @@ pub struct PaperResult {
     pub tags: Vec<String>,
     pub fields_of_study: Vec<String>,
     pub research_tasks: Vec<String>,
+    /// クエリとの類似度スコア（0.0〜1.0）
+    pub similarity: f64,
 }

@@ -13,7 +13,7 @@ pub fn print_table(papers: &[PaperResult]) {
     }
 
     let mut table = Table::new();
-    table.set_header(vec!["Title", "Year", "Authors", "Venue", "Status"]);
+    table.set_header(vec!["Title", "Year", "Authors", "Venue", "Status", "Similarity"]);
 
     for paper in papers {
         let title = truncate(
@@ -27,6 +27,7 @@ pub fn print_table(papers: &[PaperResult]) {
         let authors = format_authors(&paper.authors, 3);
         let venue = paper.venue.as_deref().unwrap_or("").to_string();
         let status = paper.status.as_deref().unwrap_or("").to_string();
+        let similarity = format!("{:.1}%", paper.similarity * 100.0);
 
         table.add_row(vec![
             Cell::new(title),
@@ -34,6 +35,7 @@ pub fn print_table(papers: &[PaperResult]) {
             Cell::new(authors),
             Cell::new(venue),
             Cell::new(status),
+            Cell::new(similarity),
         ]);
     }
 
@@ -70,6 +72,11 @@ pub fn print_xml(papers: &[PaperResult]) -> Result<()> {
         write_text_element(&mut writer, "doi", paper.doi.as_deref().unwrap_or(""))?;
         write_text_element(&mut writer, "status", paper.status.as_deref().unwrap_or(""))?;
         write_text_element(&mut writer, "file_path", &paper.file_path)?;
+        write_text_element(
+            &mut writer,
+            "similarity",
+            &format!("{}", paper.similarity),
+        )?;
 
         // <authors>
         write_list_elements(&mut writer, "authors", "author", &paper.authors)?;

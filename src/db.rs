@@ -5,6 +5,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use chrono::Utc;
 use rusqlite::Connection;
+use strsim::normalized_levenshtein;
 
 use crate::models::{Paper, PaperResult};
 
@@ -378,6 +379,17 @@ pub fn filter_papers(conn: &Connection, opts: &FilterOptions) -> Result<Vec<Pape
             id,
         )?;
 
+        // Levenshtein 距離ベースの類似度スコアを計算する
+        let similarity = compute_similarity(
+            opts,
+            title.as_deref(),
+            venue.as_deref(),
+            &authors,
+            &tags,
+            &research_tasks,
+            &fields_of_study,
+        );
+
         results.push(PaperResult {
             title,
             year,
@@ -389,10 +401,94 @@ pub fn filter_papers(conn: &Connection, opts: &FilterOptions) -> Result<Vec<Pape
             tags,
             fields_of_study,
             research_tasks,
+            similarity,
         });
     }
 
+    // 類似度降順でソートする．同スコアの場合は年降順でタイブレーク
+    results.sort_by(|a, b| {
+        b.similarity
+            .partial_cmp(&a.similarity)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| {
+                let ya = a.year.unwrap_or(0);
+                let yb = b.year.unwrap_or(0);
+                yb.cmp(&ya)
+            })
+    });
+
     Ok(results)
+}
+
+/// フィルタ条件のテキストフィールドに対して正規化 Levenshtein 類似度を計算する．
+/// 複数値を持つフィールド（author, keyword, field）は値の中の最大類似度を採用し，
+/// 全クエリ対象フィールドの平均を論文全体のスコアとする．
+/// テキストフィールドのクエリが無い場合は 1.0 を返す．
+fn compute_similarity(
+    opts: &FilterOptions,
+    title: Option<&str>,
+    venue: Option<&str>,
+    authors: &[String],
+    tags: &[String],
+    research_tasks: &[String],
+    fields_of_study: &[String],
+) -> f64 {
+    let mut scores: Vec<f64> = Vec::new();
+
+    // --title
+    if let Some(ref query) = opts.title {
+        let q = query.to_lowercase();
+        let val = title.unwrap_or("").to_lowercase();
+        scores.push(normalized_levenshtein(&q, &val));
+    }
+
+    // --author: 全著者の中で最大の類似度を採用
+    if let Some(ref query) = opts.author {
+        let q = query.to_lowercase();
+        let max_sim = authors
+            .iter()
+            .map(|a| normalized_levenshtein(&q, &a.to_lowercase()))
+            .fold(0.0_f64, f64::max);
+        scores.push(max_sim);
+    }
+
+    // --keyword: tags と research_tasks の両方から最大類似度を採用
+    if let Some(ref query) = opts.keyword {
+        let q = query.to_lowercase();
+        let all_values: Vec<String> = tags
+            .iter()
+            .chain(research_tasks.iter())
+            .map(|s| s.to_lowercase())
+            .collect();
+        let max_sim = all_values
+            .iter()
+            .map(|v| normalized_levenshtein(&q, v))
+            .fold(0.0_f64, f64::max);
+        scores.push(max_sim);
+    }
+
+    // --field: 全分野の中で最大の類似度を採用
+    if let Some(ref query) = opts.field {
+        let q = query.to_lowercase();
+        let max_sim = fields_of_study
+            .iter()
+            .map(|f| normalized_levenshtein(&q, &f.to_lowercase()))
+            .fold(0.0_f64, f64::max);
+        scores.push(max_sim);
+    }
+
+    // --venue
+    if let Some(ref query) = opts.venue {
+        let q = query.to_lowercase();
+        let val = venue.unwrap_or("").to_lowercase();
+        scores.push(normalized_levenshtein(&q, &val));
+    }
+
+    if scores.is_empty() {
+        1.0
+    } else {
+        scores.iter().sum::<f64>() / scores.len() as f64
+    }
 }
 
 /// 関連テーブルから文字列のリストを取得するヘルパー．
