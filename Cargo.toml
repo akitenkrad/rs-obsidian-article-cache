@@ -1,0 +1,21 @@
+[package]
+name = "obsidian-paper-cache"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1"
+quick-xml = { version = "0.36", features = ["serialize"] }
+walkdir = "2"
+anyhow = "1"
+regex = "1"
+chrono = { version = "0.4", features = ["serde"] }
+comfy-table = "7"
+indicatif = "0.17"
+
+[dev-dependencies]
+tempfile = "3"
