@@ -15,8 +15,8 @@ pub enum Commands {
     /// Obsidian Vault をスキャンしてキャッシュを構築/更新
     Build {
         /// Obsidian Vault のパス
-        #[arg(long, default_value = "/Users/akitenkrad/Documents/Obsidian")]
-        vault: PathBuf,
+        #[arg(long, default_value = "~/Documents/Obsidian")]
+        vault: String,
 
         /// SQLite データベースのパス
         #[arg(long, default_value = "~/.cache/obsidian-paper-cache/papers.db")]

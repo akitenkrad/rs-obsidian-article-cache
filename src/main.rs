@@ -20,8 +20,9 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Build { vault, db, force } => {
+            let vault_path = expand_tilde(&vault);
             let db_path = expand_tilde(&db);
-            cmd_build(&vault, &db_path, force)
+            cmd_build(&vault_path, &db_path, force)
         }
         Commands::Filter {
             title,
